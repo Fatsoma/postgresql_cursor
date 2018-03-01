@@ -103,13 +103,7 @@ module PostgreSQLCursor
     def each_instance(klass=nil, &block)
       klass ||= @type
       self.each_tuple do |row|
-        if ::ActiveRecord::VERSION::MAJOR < 4
-          model = klass.send(:instantiate,row)
-        else
-          @column_types ||= column_types
-          model = klass.send(:instantiate, row, @column_types)
-        end
-        block.call(model)
+        block.call(klass.send(:instantiate,row))
       end
     end
 
@@ -137,12 +131,7 @@ module PostgreSQLCursor
       klass ||= @type
       self.each_batch do |batch|
         models = batch.map do |row|
-          if ::ActiveRecord::VERSION::MAJOR < 4
-            model = klass.send(:instantiate, row)
-          else
-            @column_types ||= column_types
-            model = klass.send(:instantiate, row, @column_types)
-          end
+          klass.send(:instantiate, row)
         end
         block.call(models)
       end
@@ -173,7 +162,6 @@ module PostgreSQLCursor
       has_do_until  = @options.has_key?(:until)
       has_do_while  = @options.has_key?(:while)
       @count        = 0
-      @column_types = nil
       with_optional_transaction do
         begin
           open
@@ -197,7 +185,6 @@ module PostgreSQLCursor
       has_do_until = @options.key?(:until)
       has_do_while = @options.key?(:while)
       @count = 0
-      @column_types = nil
       with_optional_transaction do
         begin
           open
@@ -217,24 +204,6 @@ module PostgreSQLCursor
 
     def cast_types(row)
       row
-    end
-
-    def column_types
-      return nil if ::ActiveRecord::VERSION::MAJOR < 4
-      return @column_types if @column_types
-
-      types = {}
-      fields = @result.fields
-      fields.each_with_index do |fname, i|
-        ftype = @result.ftype i
-        fmod  = @result.fmod i
-        types[fname] = @connection.get_type_map.fetch(ftype, fmod) { |oid, mod|
-          warn "unknown OID: #{fname}(#{oid}) (#{sql})"
-          OID::Identity.new
-        }
-      end
-
-      @column_types = types
     end
 
     # Public: Opens (actually, "declares") the cursor. Call this before fetching
