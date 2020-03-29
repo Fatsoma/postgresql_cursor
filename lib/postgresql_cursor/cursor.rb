@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ################################################################################
 # PostgreSQLCursor: library class provides postgresql cursor for large result
 # set processing. Requires ActiveRecord, but can be adapted to other DBI/ORM libraries.
@@ -10,6 +12,7 @@
 #   while: value          - Exits loop when block does not return this value.
 #   until: value          - Exits loop when block returns this value.
 #   with_hold: boolean    - Allows the query to remain open across commit points.
+#   cursor_name: string   - Allows you to name your cursor.
 #
 # Exmaples:
 #   PostgreSQLCursor::Cursor.new("select ...").each { |hash| ... }
@@ -17,6 +20,7 @@
 #   ActiveRecordModel.each_row_by_sql("select ...") { |hash| ... }
 #   ActiveRecordModel.each_instance_by_sql("select ...") { |model| ... }
 #
+
 module PostgreSQLCursor
   class Cursor
     include Enumerable
@@ -209,9 +213,9 @@ module PostgreSQLCursor
     # Public: Opens (actually, "declares") the cursor. Call this before fetching
     def open
       set_cursor_tuple_fraction
-      @cursor = SecureRandom.uuid.gsub("-","")
+      @cursor = @options[:cursor_name] || ("cursor_" + SecureRandom.uuid.gsub("-",""))
       hold = @options[:with_hold] ? 'with hold ' : ''
-      @result = @connection.execute("declare cursor_#{@cursor} no scroll cursor #{hold}for #{@sql}")
+      @result = @connection.execute("declare #{@cursor} no scroll cursor #{hold}for #{@sql}")
       @block = []
     end
 
@@ -229,7 +233,7 @@ module PostgreSQLCursor
     # Private: Fetches the next block of rows into @block
     def fetch_block(block_size=nil)
       block_size ||= @block_size ||= @options.fetch(:block_size) { 1000 }
-      @result = @connection.execute("fetch #{block_size} from cursor_#{@cursor}")
+      @result = @connection.execute("fetch #{block_size} from #{@cursor}")
 
       if @iterate == :each_array
         @block = @result.each_row.collect {|row| row }
@@ -240,7 +244,7 @@ module PostgreSQLCursor
 
     # Public: Closes the cursor
     def close
-      @connection.execute("close cursor_#{@cursor}")
+      @connection.execute("close #{@cursor}")
     end
 
     # Private: Open transaction unless with_hold option, specified
