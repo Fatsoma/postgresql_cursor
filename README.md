@@ -67,6 +67,7 @@ All these methods take an options hash to control things more:
                       This library uses 1.0 (Optimize for 100% of the result set)
                       Do not override this value unless you understand it.
     with_hold:boolean Keep the cursor "open" even after a commit.
+    cursor_name:string Give your cursor a name.
 
 Notes:
 
@@ -201,7 +202,7 @@ There are drawbacks with these methods:
 ### How it works
 
 Under the covers, the library calls the PostgreSQL cursor operations
-with the psuedo-code:
+with the pseudo-code:
 
     SET cursor_tuple_fraction TO 1.0;
     DECLARE cursor_1 CURSOR WITH HOLD FOR select * from widgets;
